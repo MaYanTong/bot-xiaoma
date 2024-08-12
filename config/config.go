@@ -22,6 +22,12 @@ func Init() (err error) {
 
 // Config 文件动态配置 appId、token
 type Config struct {
-	AppID string `toml:"appid"`
-	Token string `toml:"token"`
+	AppID     string `toml:"appid"`
+	Token     string `toml:"token"`
+	UserName  string `toml:"username"`
+	PassWord  string `toml:"password"`
+	Url       string `toml:"url"`
+	DbName    string `toml:"dbname"`
+	RedisAddr string `toml:"redisaddr"`
+	RedisPwd  string `toml:"redispwd"`
 }

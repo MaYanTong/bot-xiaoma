@@ -1,4 +1,4 @@
-package books
+package wss
 
 import (
 	"golang.org/x/net/websocket"
@@ -21,6 +21,8 @@ func Auth() {
 		data["session_id"] = sessionId
 		data["seq"] = sequence
 	}
+	log.Printf("auth() sessionId value %s", sessionId)
+	log.Printf("auth() Sequence value %d", sequence)
 	load["op"] = 2
 	load["d"] = data
 	if err := websocket.JSON.Send(socket, &load); err != nil {

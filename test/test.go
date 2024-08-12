@@ -2,7 +2,8 @@ package test
 
 import (
 	"fmt"
-	"xiaoma-bot/books"
+	"regexp"
+	"xiaoma-bot/books/service"
 )
 
 /**
@@ -12,8 +13,15 @@ import (
 
 // TestCal 测试方法
 func TestCal() {
-	postfix := books.Convert("1+1")
+
+	pattern := regexp.MustCompile(`/0.`)
+	matchString := pattern.MatchString("1/0")
+	fmt.Println(matchString)
+	//if matched, _ := regexp.MustCompile(`\/0`, "1/0."); matched {
+	//	fmt.Println("0不能出现在/0后面")
+	//}
+	postfix := service.Convert("1.6/0.2")
 	fmt.Println(postfix)
-	calculate := books.ComputeSuffixStr(postfix)
+	calculate := service.ComputeSuffixStr(postfix)
 	fmt.Println(calculate)
 }

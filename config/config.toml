@@ -1,2 +1,8 @@
 appid="102243857"
 token="1jU693DPZ94egueXryGxD3gQZ1adbvg4"
+username="root"
+password="123456"
+url="localhost:3306"
+dbname="godb"
+redisaddr="localhost:6379"
+redispwd="123456"

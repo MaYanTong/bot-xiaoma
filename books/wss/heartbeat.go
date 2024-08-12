@@ -1,4 +1,4 @@
-package books
+package wss
 
 import (
 	"golang.org/x/net/websocket"
@@ -13,7 +13,9 @@ import (
 
 // HeartBeat 心跳检测
 func HeartBeat() {
+	log.Printf("start heart beat.......")
 	tickerTime := time.NewTicker(time.Millisecond * time.Duration(heartBeatInterval))
+	log.Printf("current heart time:%d", heartBeatInterval)
 	defer tickerTime.Stop()
 	LoadMsg := make(map[string]int64)
 	LoadMsg["op"] = 1

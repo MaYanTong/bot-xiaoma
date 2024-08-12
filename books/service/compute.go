@@ -1,12 +1,15 @@
-package books
+package service
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"xiaoma-bot/dto"
 	stack "xiaoma-bot/stack"
@@ -20,46 +23,88 @@ import (
 const (
 	info = "<@!16976044954935828807>"
 	// 默认提示
-	message  = "计数请@我并输入指令(/计数),{表达式},我会自动帮你计算！"
-	compute  = "/计数"
-	invalid  = "无法识别指令"
-	errorRes = "表达式有误"
+	message      = "计数请@我并输入指令(/计数),{表达式},我会自动帮你计算！\n查询请@我并输入指令(/查询)，我将会展示最近十条计算数据！"
+	computeCal   = "/计数"
+	computeQuery = "/查询"
+	invalid      = "无法识别指令"
+	errorRes     = "表达式有误"
 )
 
 // Compute 计算逻辑
 func Compute(loadMsg *dto.LoadMsg) string {
 	content := loadMsg.Data.Content
+	userId := loadMsg.Data.Author.Id
+	log.Printf("init compute content >>>>> %s", content)
+	log.Printf("init user id >>>>> %s", userId)
 	// 替换指令内容
 	content = strings.Replace(content, info, "", -1)
 	content = strings.TrimSpace(content)
+	log.Printf("string deal compute content >>>>> %s", content)
 	// 默认提示
 	if content == "" {
 		return message
 	}
-	if strings.HasPrefix(content, compute) {
-		re := regexp.MustCompile(`{([^}]+)}`)
-		matches := re.FindAllStringSubmatch(content, -1)
-		if matches != nil {
-			str := matches[0][1]
-			err := ValidateInput(str)
-			if err != nil {
-				content = errorRes
-			} else {
-				// 中缀转后缀
-				postfix := Convert(str)
-				// 计算后缀表达结果
-				res := ComputeSuffixStr(postfix)
-				// 去除小数点后的0
-				zero := removeZero(res)
-				content = fmt.Sprintf("%s = %s", str, zero)
-			}
-		} else {
+	if strings.HasPrefix(content, computeCal) {
+		// 计算指令
+		re := strings.TrimPrefix(content, computeCal)
+		re = strings.TrimSpace(re)
+		log.Printf("prefix deal compute content >>>>> %s", re)
+		err := ValidateInput(re)
+		if err != nil {
 			content = errorRes
+		} else {
+			postfix := Convert(re)
+			res := ComputeSuffixStr(postfix)
+			zero := removeZero(res)
+			content = fmt.Sprintf("%s = %s", re, zero)
+		}
+		// 将数据存入DB中  sql注入問題 像异常事务回滚，封装方法等就先不做了，做个简单的插入和查询功能
+		sqlStr := "insert into user_cal(user_id, result, time) values(?, ?, ?)"
+		now := time.Now()
+		formattedTime := now.Format("2006-01-02 15:04:05")
+
+		_, err = db.Exec(sqlStr, userId, content, formattedTime)
+		if err != nil {
+			log.Printf("insert row error: %v\n", err)
+		}
+		return content
+	} else if strings.HasPrefix(content, computeQuery) {
+		content = "最近十条计算数据\n"
+		// 查询最近十条计算数据 重DB中查询   sql注入問題
+		sqlStr := "select time, result from user_cal where user_id = ? order by time desc limit 10"
+		var userCal UserCal
+		row, err := db.Query(sqlStr, userId)
+		if err != nil {
+			fmt.Printf("query row error: %v\n", err)
+			content = "查询出错"
+			return content
+		}
+		defer func(row *sql.Rows) {
+			err := row.Close()
+			if err != nil {
+				log.Printf("close fail. %v", err)
+			}
+		}(row)
+		for row.Next() {
+			err := row.Scan(&userCal.time, &userCal.result)
+			if err != nil {
+				fmt.Printf("scan row error: %v\n", err)
+			}
+			log.Printf(">>>>>>>>>>>>>>" + userCal.time)
+			log.Printf(">>>>>>>>>>>>>>" + userCal.result)
+			temp := fmt.Sprintf("%s : %s\n", userCal.time, userCal.result)
+			content = content + temp
 		}
 	} else {
 		content = invalid
 	}
 	return content
+}
+
+type UserCal struct {
+	userId string
+	result string
+	time   string
 }
 
 // 定义符号优先级
@@ -212,7 +257,10 @@ func ValidateInput(expr string) error {
 	if matched, _ := regexp.MatchString(`\+\+|--|\*\*|%%|\(\)|//`, expr); matched {
 		return fmt.Errorf("出现连续的符号")
 	}
-	if matched, _ := regexp.MatchString(`/0`, expr); matched {
+	// 检查除数是否为0
+	match1, _ := regexp.MatchString(`/0`, expr)
+	match2, _ := regexp.MatchString(`/0.`, expr)
+	if match1 && !match2 {
 		return fmt.Errorf("0不能出现在/0后面")
 	}
 	return nil
